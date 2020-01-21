@@ -27,7 +27,7 @@ func TestGSLTStruct(t *testing.T) {
 	}
 }
 
-func TestDeleteAllGSLT(t *testing.T) {
+func TestDeleteAllExpiredGSLT(t *testing.T) {
 	Manager := gslt.Manager{}
 	Manager.APIToken = SteamAPIToken
 	Manager.GetList()
@@ -35,5 +35,14 @@ func TestDeleteAllGSLT(t *testing.T) {
 		if Manager.Servers[i].IsExpired == true {
 			Manager.Servers[i].Delete()
 		}
+	}
+}
+
+func TestDeleteAllGSLT(t *testing.T) {
+	Manager := gslt.Manager{}
+	Manager.APIToken = SteamAPIToken
+	Manager.GetList()
+	for i := 0; i < len(Manager.Servers); i++ {
+		Manager.Servers[i].Delete()
 	}
 }
