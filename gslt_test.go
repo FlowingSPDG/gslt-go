@@ -46,3 +46,69 @@ func TestDeleteAllGSLT(t *testing.T) {
 		Manager.Servers[i].Delete()
 	}
 }
+
+func TestSetMemo(t *testing.T) {
+	Manager := gslt.Manager{}
+	Manager.APIToken = SteamAPIToken
+	Manager.GetList()
+	generated, err := Manager.Generate("GO_TEST_MEMO", 730)
+	if err != nil {
+		t.Errorf("Failed to generate GSLT...\nERR : %v\n", err)
+		return
+	}
+	generated.SetMemo("GO_TEST_MEMO_SETMEMO")
+}
+
+func TestResetLoginToken(t *testing.T) {
+	Manager := gslt.Manager{}
+	Manager.APIToken = SteamAPIToken
+	Manager.GetList()
+	generated, err := Manager.Generate("GO_TEST_RESET", 730)
+	if err != nil {
+		t.Errorf("Failed to generate GSLT...\nERR : %v\n", err)
+		return
+	}
+	t.Logf("GENERATED GSLT : %v\n", generated)
+	err = generated.ResetLoginToken()
+	if err != nil {
+		t.Errorf("Failed to reset Login token...\nERR : %v\n", err)
+		return
+	}
+	t.Logf("New login_token : %s\n", generated.LoginToken)
+}
+
+func TestGetAccountPublicInfo(t *testing.T) {
+	Manager := gslt.Manager{}
+	Manager.APIToken = SteamAPIToken
+	Manager.GetList()
+	generated, err := Manager.Generate("GO_TEST_PublicInfo", 730)
+	if err != nil {
+		t.Errorf("Failed to generate GSLT...\nERR : %v\n", err)
+		return
+	}
+	t.Logf("GENERATED GSLT : %v\n", generated)
+	info, err := generated.GetAccountPublicInfo()
+	if err != nil {
+		t.Errorf("Failed to reset Login token...\nERR : %v\n", err)
+		return
+	}
+	t.Logf("Public Info : %v\n", info)
+}
+
+func TestQueryLoginToken(t *testing.T) {
+	Manager := gslt.Manager{}
+	Manager.APIToken = SteamAPIToken
+	Manager.GetList()
+	generated, err := Manager.Generate("GO_TEST_QueryLoginToken", 730)
+	if err != nil {
+		t.Errorf("Failed to generate GSLT...\nERR : %v\n", err)
+		return
+	}
+	t.Logf("GENERATED GSLT : %v\n", generated)
+	query, err := generated.QueryLoginToken()
+	if err != nil {
+		t.Errorf("Failed to reset Login token...\nERR : %v\n", err)
+		return
+	}
+	t.Logf("Query Info : %v\n", query)
+}
