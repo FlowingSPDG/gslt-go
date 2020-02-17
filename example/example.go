@@ -10,7 +10,7 @@ import (
 func main() {
 	var (
 		APIKey = flag.String("apikey", "", "Steam Web API Key.")
-		APPID  = flag.Int("appid", 730, "Game AppID to generate.")
+		APPID  = flag.Uint("appid", 730, "Game AppID to generate.")
 		Memo   = flag.String("memo", "", "Memo for GSLT.")
 	)
 	flag.Parse()
@@ -23,12 +23,12 @@ func main() {
 	Manager := gslt.Manager{}
 	Manager.APIToken = *APIKey
 	Manager.GetList()
-	gslt1, err := Manager.Generate(*Memo, *APPID)
+	gslt1, err := Manager.Generate(*Memo, uint32(*APPID))
 	if err != nil {
 		fmt.Printf("Failed to generate GSLT...\nERR : %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Generated GSLT : %v\n", gslt1.LoginToken)
+	fmt.Printf("Generated GSLT : %v\n", gslt1)
 
 	// Or you can just generate it...
 	/*
