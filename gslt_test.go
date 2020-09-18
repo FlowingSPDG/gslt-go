@@ -1,16 +1,21 @@
-package gslt_test
+package gslt
 
 import (
-	"github.com/FlowingSPDG/gslt-go"
+	"os"
 	"testing"
 )
 
-const (
+var (
 	SteamAPIToken = ""
 )
 
+func TestMain(m *testing.M) {
+	SteamAPIToken = os.Getenv("STEAM_API_TOKEN")
+	m.Run()
+}
+
 func TestGSLTStruct(t *testing.T) {
-	Manager := gslt.Manager{}
+	Manager := Manager{}
 	Manager.APIToken = SteamAPIToken
 	Manager.GetList()
 	generated, err := Manager.Generate("GOTEST", 730)
@@ -28,7 +33,7 @@ func TestGSLTStruct(t *testing.T) {
 }
 
 func TestDeleteAllExpiredGSLT(t *testing.T) {
-	Manager := gslt.Manager{}
+	Manager := Manager{}
 	Manager.APIToken = SteamAPIToken
 	Manager.GetList()
 	for i := 0; i < len(Manager.Servers); i++ {
@@ -39,7 +44,7 @@ func TestDeleteAllExpiredGSLT(t *testing.T) {
 }
 
 func TestDeleteAllGSLT(t *testing.T) {
-	Manager := gslt.Manager{}
+	Manager := Manager{}
 	Manager.APIToken = SteamAPIToken
 	Manager.GetList()
 	for i := 0; i < len(Manager.Servers); i++ {
@@ -48,7 +53,7 @@ func TestDeleteAllGSLT(t *testing.T) {
 }
 
 func TestSetMemo(t *testing.T) {
-	Manager := gslt.Manager{}
+	Manager := Manager{}
 	Manager.APIToken = SteamAPIToken
 	Manager.GetList()
 	generated, err := Manager.Generate("GO_TEST_MEMO", 730)
@@ -60,7 +65,7 @@ func TestSetMemo(t *testing.T) {
 }
 
 func TestResetLoginToken(t *testing.T) {
-	Manager := gslt.Manager{}
+	Manager := Manager{}
 	Manager.APIToken = SteamAPIToken
 	Manager.GetList()
 	generated, err := Manager.Generate("GO_TEST_RESET", 730)
@@ -78,7 +83,7 @@ func TestResetLoginToken(t *testing.T) {
 }
 
 func TestGetAccountPublicInfo(t *testing.T) {
-	Manager := gslt.Manager{}
+	Manager := Manager{}
 	Manager.APIToken = SteamAPIToken
 	Manager.GetList()
 	generated, err := Manager.Generate("GO_TEST_PublicInfo", 730)
@@ -96,7 +101,7 @@ func TestGetAccountPublicInfo(t *testing.T) {
 }
 
 func TestQueryLoginToken(t *testing.T) {
-	Manager := gslt.Manager{}
+	Manager := Manager{}
 	Manager.APIToken = SteamAPIToken
 	Manager.GetList()
 	generated, err := Manager.Generate("GO_TEST_QueryLoginToken", 730)

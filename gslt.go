@@ -7,12 +7,6 @@ import (
 	"net/http"
 )
 
-// Manager GSLT Manager.
-type Manager struct {
-	APIToken string
-	Servers  []*GSLT
-}
-
 // GSLT GSLT Struct.
 type GSLT struct {
 	Steamid     SteamID64 `json:"steamid"`
@@ -84,34 +78,11 @@ type sGSLTList struct {
 	LastActionTime int    `json:"last_action_time"`
 }
 
-// GetList Gets a list of game server accounts with their logon tokens
-func (m *Manager) GetList() ([]*GSLT, error) {
-	ListPointer, err := ListGSLT(m.APIToken)
-	if err != nil {
-		return nil, err
-	}
-	m.Servers = ListPointer
-	return m.Servers, nil
-}
-
-// Generate Creates a persistent game server account
-func (m *Manager) Generate(memo string, appid uint32) (*GSLT, error) {
-	if m.APIToken == "" {
-		return nil, fmt.Errorf("API Token Empty")
-	}
-	gslt, err := GetGSLT(m.APIToken, memo, appid)
-	if err != nil {
-		return nil, err
-	}
-	gslt.APIToken = m.APIToken
-	gslt.Appid = appid
-	gslt.Memo = memo
-	m.Servers = append(m.Servers, &gslt)
-	return &gslt, nil
-}
-
 // Delete Deletes a persistent game server account
 func (g *GSLT) Delete() error {
+	if g == nil {
+		return fmt.Errorf("Nil GSLT")
+	}
 	err := DeleteGSLTByToken(g.APIToken, g.LoginToken)
 	if err != nil {
 		return err
@@ -122,6 +93,9 @@ func (g *GSLT) Delete() error {
 
 // SetMemo This method changes the memo associated with the game server account. Memos do not affect the account in any way. The memo shows up in the GetAccountList response and serves only as a reminder of what the account is used for.
 func (g *GSLT) SetMemo(memo string) error {
+	if g == nil {
+		return fmt.Errorf("Nil GSLT")
+	}
 	err := SetMemo(g.APIToken, g.Steamid, memo)
 	if err != nil {
 		return err
@@ -132,6 +106,9 @@ func (g *GSLT) SetMemo(memo string) error {
 
 // ResetLoginToken Generates a new login token for the specified game server
 func (g *GSLT) ResetLoginToken() error {
+	if g == nil {
+		return fmt.Errorf("Nil GSLT")
+	}
 	token, err := ResetLoginTokenBySteamID(g.APIToken, g.Steamid)
 	if err != nil {
 		return err
@@ -144,6 +121,9 @@ func (g *GSLT) ResetLoginToken() error {
 
 // GetAccountPublicInfo Gets public information about a given game server account
 func (g *GSLT) GetAccountPublicInfo() (*PublicInfoJSON, error) {
+	if g == nil {
+		return nil, fmt.Errorf("Nil GSLT")
+	}
 	info, err := GetAccountPublicInfo(g.APIToken, g.Steamid)
 	if err != nil {
 		return nil, err
@@ -153,6 +133,9 @@ func (g *GSLT) GetAccountPublicInfo() (*PublicInfoJSON, error) {
 
 // QueryLoginToken Queries the status of the specified token, which must be owned by you
 func (g *GSLT) QueryLoginToken() (*QueryInfoJSON, error) {
+	if g == nil {
+		return nil, fmt.Errorf("Nil GSLT")
+	}
 	info, err := QueryLoginToken(g.APIToken, g.LoginToken)
 	if err != nil {
 		return nil, err
@@ -186,11 +169,6 @@ func GetGSLT(token string, memo string, appid uint32) (GSLT, error) {
 	gslt.Appid = appid
 	gslt.Memo = memo
 	return gslt, nil
-}
-
-// DeleteGSLT for back compatibility...
-func DeleteGSLT(token string, gslt string) error {
-	return DeleteGSLTByToken(token, gslt)
 }
 
 // DeleteGSLTByToken Deletes specified GSLT. Returns error if GSLT was invalid
