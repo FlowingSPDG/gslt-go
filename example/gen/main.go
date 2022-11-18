@@ -3,8 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/FlowingSPDG/gslt-go"
 	"os"
+
+	"github.com/FlowingSPDG/gslt-go"
 )
 
 func main() {

@@ -23,7 +23,7 @@ func (m *Manager) GetList() error {
 	}
 	ListPointer, err := ListGSLT(m.APIToken)
 	if err != nil {
-		return  err
+		return err
 	}
 	m.Servers = ListPointer
 	return nil
@@ -44,6 +44,6 @@ func (m *Manager) Generate(memo string, appid uint32) (*GSLT, error) {
 	gslt.APIToken = m.APIToken
 	gslt.Appid = appid
 	gslt.Memo = memo
-	m.Servers = append(m.Servers, &gslt)
-	return &gslt, nil
+	m.Servers = append(m.Servers, gslt)
+	return gslt, nil
 }

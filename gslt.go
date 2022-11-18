@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"path"
 )
 
 // GSLT GSLT Struct.
@@ -78,24 +80,31 @@ type sGSLTList struct {
 	LastActionTime int    `json:"last_action_time"`
 }
 
+func buildURL(op string, qs map[string]string) (string, error) {
+	var (
+		serviceURL = "https://api.steampowered.com/IGameServersService/"
+		version    = "v1"
+	)
+	u, err := url.Parse(serviceURL)
+	if err != nil {
+		return "", err
+	}
+	u.Path = path.Join(u.Path, op, version)
+	q := u.Query()
+	for k, v := range qs {
+		q.Add(k, v)
+	}
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
 // Delete Deletes a persistent game server account
 func (g *GSLT) Delete() error {
-	if g == nil {
-		return fmt.Errorf("Nil GSLT")
-	}
-	err := DeleteGSLTByToken(g.APIToken, g.LoginToken)
-	if err != nil {
-		return err
-	}
-	g = nil
-	return nil
+	return DeleteGSLTBySteamID(g.APIToken, g.Steamid)
 }
 
 // SetMemo This method changes the memo associated with the game server account. Memos do not affect the account in any way. The memo shows up in the GetAccountList response and serves only as a reminder of what the account is used for.
 func (g *GSLT) SetMemo(memo string) error {
-	if g == nil {
-		return fmt.Errorf("Nil GSLT")
-	}
 	err := SetMemo(g.APIToken, g.Steamid, memo)
 	if err != nil {
 		return err
@@ -106,9 +115,6 @@ func (g *GSLT) SetMemo(memo string) error {
 
 // ResetLoginToken Generates a new login token for the specified game server
 func (g *GSLT) ResetLoginToken() error {
-	if g == nil {
-		return fmt.Errorf("Nil GSLT")
-	}
 	token, err := ResetLoginTokenBySteamID(g.APIToken, g.Steamid)
 	if err != nil {
 		return err
@@ -121,9 +127,6 @@ func (g *GSLT) ResetLoginToken() error {
 
 // GetAccountPublicInfo Gets public information about a given game server account
 func (g *GSLT) GetAccountPublicInfo() (*PublicInfoJSON, error) {
-	if g == nil {
-		return nil, fmt.Errorf("Nil GSLT")
-	}
 	info, err := GetAccountPublicInfo(g.APIToken, g.Steamid)
 	if err != nil {
 		return nil, err
@@ -133,9 +136,6 @@ func (g *GSLT) GetAccountPublicInfo() (*PublicInfoJSON, error) {
 
 // QueryLoginToken Queries the status of the specified token, which must be owned by you
 func (g *GSLT) QueryLoginToken() (*QueryInfoJSON, error) {
-	if g == nil {
-		return nil, fmt.Errorf("Nil GSLT")
-	}
 	info, err := QueryLoginToken(g.APIToken, g.LoginToken)
 	if err != nil {
 		return nil, err
@@ -144,34 +144,47 @@ func (g *GSLT) QueryLoginToken() (*QueryInfoJSON, error) {
 }
 
 // GetGSLT Generates GSLT. You can use Manager or this function
-func GetGSLT(token string, memo string, appid uint32) (GSLT, error) {
-	GetURL := fmt.Sprintf("https://api.steampowered.com/IGameServersService/CreateAccount/v1/?key=%s&appid=%d&memo=%s", token, appid, memo)
-
-	resp, err := http.Post(GetURL, "json", nil)
+func GetGSLT(token string, memo string, appid uint32) (*GSLT, error) {
+	appID := fmt.Sprintf("%d", appid) /// HACK
+	u, err := buildURL("CreateAccount", map[string]string{
+		"key":   token,
+		"appid": appID,
+		"memo":  memo,
+	})
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, err
+	}
+
+	resp, err := http.Post(u, "json", nil)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	byteArray, _ := ioutil.ReadAll(resp.Body)
+	jsonBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
-	jsonBytes := ([]byte)(string(byteArray))
 	data := sGenerateGSLTJSON{}
-	gslt := GSLT{}
 
 	if err := json.Unmarshal(jsonBytes, &data); err != nil {
-		fmt.Println("JSON Unmarshal error:", err)
-		return gslt, err
+		return nil, err
 	}
-	gslt.Steamid = data.sGenerateGSLT.Steamid
-	gslt.LoginToken = data.sGenerateGSLT.LoginToken
-	gslt.APIToken = token
-	gslt.Appid = appid
-	gslt.Memo = memo
+	gslt := &GSLT{
+		Steamid:     data.sGenerateGSLT.Steamid,
+		Appid:       appid,
+		LoginToken:  data.sGenerateGSLT.LoginToken,
+		Memo:        memo,
+		IsDeleted:   false,
+		IsExpired:   false,
+		RtLastLogon: 0,
+		APIToken:    token,
+	}
 	return gslt, nil
 }
 
-// DeleteGSLTByToken Deletes specified GSLT. Returns error if GSLT was invalid
+// DeleteGSLTByToken Lists and Deletes specified GSLT. Returns error if GSLT was invalid. High API Usage.
 func DeleteGSLTByToken(token string, gslt string) error {
 	var steamid SteamID64
 	List, err := ListGSLT(token)
@@ -186,25 +199,21 @@ func DeleteGSLTByToken(token string, gslt string) error {
 	if steamid == 0 {
 		return fmt.Errorf("SteamID not found")
 	}
-	DeleteURL := fmt.Sprintf("https://api.steampowered.com/IGameServersService/DeleteAccount/v1/?key=%s&steamid=%d", token, steamid)
-	postresp, err := http.Post(DeleteURL, "json", nil)
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-	defer postresp.Body.Close()
-	return nil
+
+	return DeleteGSLTBySteamID(token, steamid)
 }
 
 // DeleteGSLTBySteamID Deletes specified GSLT. Returns error if GSLT was invalid
 func DeleteGSLTBySteamID(token string, steamid SteamID64) error {
-	if steamid == 0 {
-		return fmt.Errorf("SteamID not found")
-	}
-	DeleteURL := fmt.Sprintf("https://api.steampowered.com/IGameServersService/DeleteAccount/v1/?key=%s&steamid=%d", token, steamid)
-	postresp, err := http.Post(DeleteURL, "json", nil)
+	u, err := buildURL("DeleteAccount", map[string]string{
+		"key":     token,
+		"steamid": steamid.String(),
+	})
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
+	}
+	postresp, err := http.Post(u, "json", nil)
+	if err != nil {
 		return err
 	}
 	defer postresp.Body.Close()
@@ -213,10 +222,16 @@ func DeleteGSLTBySteamID(token string, steamid SteamID64) error {
 
 // SetMemo Sets/Updates specified GSLT's memo. Returns error if GSLT was invalid
 func SetMemo(token string, steamid SteamID64, memo string) error {
-	SetMemoURL := fmt.Sprintf("https://api.steampowered.com/IGameServersService/SetMemo/v1/?key=%s&steamid=%d&memo=%s", token, steamid, memo)
-	postresp, err := http.Post(SetMemoURL, "json", nil)
+	u, err := buildURL("SetMemo", map[string]string{
+		"key":     token,
+		"steamid": steamid.String(),
+		"memo":    memo,
+	})
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
+	}
+	postresp, err := http.Post(u, "json", nil)
+	if err != nil {
 		return err
 	}
 	defer postresp.Body.Close()
@@ -225,25 +240,27 @@ func SetMemo(token string, steamid SteamID64, memo string) error {
 
 // ResetLoginTokenBySteamID Resets specified GSLT's token. Returns error if GSLT was invalid. login_token will not be changed if its never used
 func ResetLoginTokenBySteamID(token string, steamid SteamID64) (string, error) {
-	SetLoginTokenURL := fmt.Sprintf("https://api.steampowered.com/IGameServersService/ResetLoginToken/v1/?key=%s&steamid=%d", token, steamid)
-	postresp, err := http.Post(SetLoginTokenURL, "json", nil)
+	u, err := buildURL("ResetLoginToken", map[string]string{
+		"key":     token,
+		"steamid": steamid.String(),
+	})
 	if err != nil {
-		fmt.Printf("ERR : %v\n", err)
+		return "", err
+	}
+	postresp, err := http.Post(u, "json", nil)
+	if err != nil {
 		return "", err
 	}
 	defer postresp.Body.Close()
 
-	ResetByteArray, _ := ioutil.ReadAll(postresp.Body)
-	ResetjsonBytes := ([]byte)(string(ResetByteArray))
+	ResetjsonBytes, err := ioutil.ReadAll(postresp.Body)
+	if err != nil {
+		return "", err
+	}
 	ResetData := sResetGSLTJSON{}
 
 	if err := json.Unmarshal(ResetjsonBytes, &ResetData); err != nil {
-		fmt.Println("JSON Unmarshal error:", err)
 		return "", err
-	}
-	if ResetData.LoginToken == "" {
-		fmt.Printf("login_token not changed...\n")
-		return "", nil
 	}
 
 	return ResetData.LoginToken, nil
@@ -251,44 +268,56 @@ func ResetLoginTokenBySteamID(token string, steamid SteamID64) (string, error) {
 
 // ListGSLT Get GSLT Account list
 func ListGSLT(token string) ([]*GSLT, error) {
-	ListURL := "https://api.steampowered.com/IGameServersService/GetAccountList/v1/?key=" + token
-	listresp, err := http.Get(ListURL)
+	u, err := buildURL("GetAccountList", map[string]string{
+		"key": token,
+	})
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, err
+	}
+	listresp, err := http.Get(u)
+	if err != nil {
 		return nil, err
 	}
 	defer listresp.Body.Close()
 
-	GetByteArray, _ := ioutil.ReadAll(listresp.Body)
-	GetjsonBytes := ([]byte)(string(GetByteArray))
+	GetjsonBytes, err := ioutil.ReadAll(listresp.Body)
+	if err != nil {
+		return nil, err
+	}
 	GetData := sGSLTListJSON{}
 
 	if err := json.Unmarshal(GetjsonBytes, &GetData); err != nil {
-		fmt.Println("JSON Unmarshal error:", err)
+		fmt.Println("s:", string(GetjsonBytes))
 		return nil, err
 	}
-	for i := 0; i < len(GetData.Servers); i++ {
-		GetData.Servers[i].APIToken = token
+	for _, v := range GetData.Servers {
+		v.APIToken = token
 	}
 	return GetData.Servers, nil
 }
 
 // GetAccountPublicInfo Gets GSLT Account's public information
 func GetAccountPublicInfo(token string, steamid SteamID64) (*PublicInfoJSON, error) {
-	ListURL := fmt.Sprintf("https://api.steampowered.com/IGameServersService/GetAccountPublicInfo/v1/?key=%s&steamid=%d", token, steamid)
-	listresp, err := http.Get(ListURL)
+	u, err := buildURL("GetAccountPublicInfo", map[string]string{
+		"key":     token,
+		"steamid": steamid.String(),
+	})
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, err
+	}
+	listresp, err := http.Get(u)
+	if err != nil {
 		return nil, err
 	}
 	defer listresp.Body.Close()
 
-	PublicByteArray, _ := ioutil.ReadAll(listresp.Body)
-	PublicjsonBytes := ([]byte)(string(PublicByteArray))
+	PublicjsonBytes, err := ioutil.ReadAll(listresp.Body)
+	if err != nil {
+		return nil, err
+	}
 	PublicData := PublicInfoJSON{}
 
 	if err := json.Unmarshal(PublicjsonBytes, &PublicData); err != nil {
-		fmt.Println("JSON Unmarshal error:", err)
 		return nil, err
 	}
 	return &PublicData, nil
@@ -296,16 +325,20 @@ func GetAccountPublicInfo(token string, steamid SteamID64) (*PublicInfoJSON, err
 
 // QueryLoginToken Queries login token info
 func QueryLoginToken(token string, logintoken string) (*QueryInfoJSON, error) {
-	ListURL := fmt.Sprintf("https://api.steampowered.com/IGameServersService/QueryLoginToken/v1/?key=%s&login_token=%s", token, logintoken)
-	listresp, err := http.Get(ListURL)
+	u, err := buildURL("QueryLoginToken", map[string]string{
+		"key":         token,
+		"login_token": logintoken,
+	})
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, err
+	}
+	listresp, err := http.Get(u)
+	if err != nil {
 		return nil, err
 	}
 	defer listresp.Body.Close()
 
-	QueryByteArray, _ := ioutil.ReadAll(listresp.Body)
-	QueryjsonBytes := ([]byte)(string(QueryByteArray))
+	QueryjsonBytes, _ := ioutil.ReadAll(listresp.Body)
 	QueryData := QueryInfoJSON{}
 
 	if err := json.Unmarshal(QueryjsonBytes, &QueryData); err != nil {
@@ -336,4 +369,8 @@ func (m *SteamID64) UnmarshalJSON(b []byte) error {
 	}
 	*m = SteamID64(i)
 	return nil
+}
+
+func (m SteamID64) String() string {
+	return fmt.Sprintf("%d", m)
 }
