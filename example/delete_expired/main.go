@@ -18,25 +18,24 @@ func main() {
 		return
 	}
 
-	// List GSLTs
-	gslts, err := gslt.ListGSLT(*APIKey)
+	// List accounts
+	accounts, err := gslt.GetAccontList(*APIKey)
 	if err != nil {
-		log.Fatalln("Failed to get GSLTs:", err)
-		return
+		panic(err)
 	}
 
 	// Delete with goroutine
 	wg := sync.WaitGroup{}
-	for _, g := range gslts {
-		if g.IsExpired {
+	for _, server := range accounts.Response.Servers {
+		if server.IsExpired {
 			wg.Add(1)
-			go func(g *gslt.GSLT) {
+			go func(server gslt.Server) {
 				defer wg.Done()
-				if err := g.Delete(); err != nil {
+				if err := gslt.DeleteAccount(*APIKey, server.SteamID); err != nil {
 					log.Println("Failed to delete GSLT:", err)
 					return
 				}
-			}(g)
+			}(server)
 		}
 	}
 	wg.Wait()
