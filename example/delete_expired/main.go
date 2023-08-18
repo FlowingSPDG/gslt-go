@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"strconv"
 	"sync"
 
 	"github.com/FlowingSPDG/gslt-go"
@@ -18,25 +19,31 @@ func main() {
 		return
 	}
 
-	// List GSLTs
-	gslts, err := gslt.ListGSLT(*APIKey)
+	service := gslt.NewGameServerService(*APIKey)
+
+	// List accounts
+	accounts, err := service.GetAccountList()
 	if err != nil {
-		log.Fatalln("Failed to get GSLTs:", err)
-		return
+		panic(err)
 	}
 
 	// Delete with goroutine
 	wg := sync.WaitGroup{}
-	for _, g := range gslts {
-		if g.IsExpired {
+	for _, server := range accounts.Response.Servers {
+		if server.IsExpired {
 			wg.Add(1)
-			go func(g *gslt.GSLT) {
+			go func(server gslt.Server) {
 				defer wg.Done()
-				if err := g.Delete(); err != nil {
+				steamid, err := strconv.ParseUint(server.SteamID, 10, 64)
+				if err != nil {
+					log.Println("Failed to parse steamid:", err)
+					return
+				}
+				if err := service.DeleteAccount(steamid); err != nil {
 					log.Println("Failed to delete GSLT:", err)
 					return
 				}
-			}(g)
+			}(server)
 		}
 	}
 	wg.Wait()
