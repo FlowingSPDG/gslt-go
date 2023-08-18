@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"strconv"
 	"sync"
 
 	"github.com/FlowingSPDG/gslt-go"
@@ -18,8 +19,10 @@ func main() {
 		return
 	}
 
+	service := gslt.NewGameServerService(*APIKey)
+
 	// List accounts
-	accounts, err := gslt.GetAccontList(*APIKey)
+	accounts, err := service.GetAccountList()
 	if err != nil {
 		panic(err)
 	}
@@ -31,7 +34,12 @@ func main() {
 			wg.Add(1)
 			go func(server gslt.Server) {
 				defer wg.Done()
-				if err := gslt.DeleteAccount(*APIKey, server.SteamID); err != nil {
+				steamid, err := strconv.ParseUint(server.SteamID, 10, 64)
+				if err != nil {
+					log.Println("Failed to parse steamid:", err)
+					return
+				}
+				if err := service.DeleteAccount(steamid); err != nil {
 					log.Println("Failed to delete GSLT:", err)
 					return
 				}

@@ -20,7 +20,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	gslt1, err := gslt.CreateAccount(*APIKey, uint32(*APPID), *Memo)
+	service := gslt.NewGameServerService(*APIKey)
+
+	gslt1, err := service.CreateAccount(uint32(*APPID), *Memo)
 	if err != nil {
 		panic(err)
 	}

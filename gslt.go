@@ -2,187 +2,171 @@ package gslt
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"net/url"
+
+	steamworks "github.com/FlowingSPDG/steamworks-web-api-gen-go/generated"
 )
 
-const (
-	gameServerServiceEndpoint = "https://api.steampowered.com/IGameServersService"
-
-	getAccountListPath    = "/GetAccountList/v1"
-	createAccountPath     = "/CreateAccount/v1"
-	setMemoPath           = "/SetMemo/v1"
-	resetLoginToken       = "/ResetLoginToken/v1"
-	deleteAccount         = "/DeleteAccount/v1"
-	getAccountPublicInfo  = "/GetAccountPublicInfo/v1"
-	queryLoginToken       = "/QueryLoginToken/v1"
-	getServerSteamIDsByIP = "/GetServerSteamIDsByIP/v1"
-	getServerIPsBySteamID = "/GetServerIPsBySteamID/v1"
-)
-
-func buildURL(key string, path string, queries map[string]string) string {
-	// get endpoint
-	basePath := gameServerServiceEndpoint
-	if queries == nil {
-		queries = map[string]string{}
-	}
-	queries["key"] = key
-
-	// build query
-	u, _ := url.ParseRequestURI(basePath)
-	q := u.Query()
-	for k, v := range queries {
-		q.Add(k, v)
-	}
-	// Encode query
-	u.RawQuery = q.Encode()
-	u = u.JoinPath(path)
-
-	return u.String()
+type gameServerService struct {
+	key string
+	srv steamworks.IGameServersService
 }
 
-func get(endpoint string, p any) error {
-	resp, err := http.Get(endpoint)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if p == nil {
-		return nil
-	}
-
-	return json.Unmarshal(b, p)
+type GameServerService interface {
+	GetAccountList() (*GetAccountListResponse, error)
+	CreateAccount(appid uint32, memo string) (*CreateAccountResponse, error)
+	SetMemo(steamid uint64, memo string) error
+	ResetLoginToken(steamid uint64) (*ResetLoginTokenResponse, error)
+	DeleteAccount(steamid uint64) error
+	GetAccountPublicInfo(steamid uint64) (*GetAccountPublicInfoResponse, error)
+	QueryLoginToken(loginToken string) (*QueryLoginTokenResponse, error)
+	GetServerSteamIDsByIP(serverIP string) (*GetServerSteamIDsByIPResponse, error)
+	GetServerIPsBySteamID(steamid uint64) (*GetServerIPsBySteamIDResponse, error)
 }
 
-func post(endpoint string, p any) error {
-	resp, err := http.Post(endpoint, "application/json", nil)
-	if err != nil {
-		return err
+func NewGameServerService(key string) GameServerService {
+	return &gameServerService{
+		key: key,
+		srv: steamworks.NewIGameServersService(),
 	}
-	defer resp.Body.Close()
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if p == nil {
-		return nil
-	}
-
-	return json.Unmarshal(b, p)
 }
 
-func GetAccontList(key string) (*GetAccountListResponse, error) {
-	u := buildURL(key, getAccountListPath, nil)
-	resp := &GetAccountListResponse{}
-	if err := get(u, resp); err != nil {
+func reMarshal(m map[string]any, dest any) error {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, dest)
+}
+
+func (gs *gameServerService) GetAccountList() (*GetAccountListResponse, error) {
+	resp, err := gs.srv.GetAccountListV1(steamworks.IGameServersServiceGetAccountListV1Input{
+		Key: gs.key,
+	})
+	if err != nil {
+		return nil, err
+	}
+	ret := &GetAccountListResponse{}
+	if err := reMarshal(resp, ret); err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	return ret, nil
 }
 
-func CreateAccount(key string, appid uint32, memo string) (*CreateAccountResponse, error) {
-	u := buildURL(key, createAccountPath, map[string]string{
-		"appid": fmt.Sprintf("%d", appid),
-		"memo":  memo,
+func (gs *gameServerService) CreateAccount(appid uint32, memo string) (*CreateAccountResponse, error) {
+	resp, err := gs.srv.CreateAccountV1(steamworks.IGameServersServiceCreateAccountV1Input{
+		Key:   gs.key,
+		Appid: appid,
+		Memo:  memo,
 	})
-	resp := &CreateAccountResponse{}
-	if err := post(u, resp); err != nil {
+	if err != nil {
+		return nil, err
+	}
+	ret := &CreateAccountResponse{}
+	if err := reMarshal(resp, ret); err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	return ret, nil
 }
 
-func SetMemo(key string, steamid string, memo string) error {
-	u := buildURL(key, setMemoPath, map[string]string{
-		"steamid": steamid,
-		"memo":    memo,
+func (gs *gameServerService) SetMemo(steamid uint64, memo string) error {
+	if _, err := gs.srv.SetMemoV1(steamworks.IGameServersServiceSetMemoV1Input{
+		Key:     gs.key,
+		Steamid: steamid,
+		Memo:    memo,
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (gs *gameServerService) ResetLoginToken(steamid uint64) (*ResetLoginTokenResponse, error) {
+	resp, err := gs.srv.ResetLoginTokenV1(steamworks.IGameServersServiceResetLoginTokenV1Input{
+		Key:     gs.key,
+		Steamid: steamid,
 	})
-	if err := post(u, nil); err != nil {
+	if err != nil {
+		return nil, err
+	}
+	ret := &ResetLoginTokenResponse{}
+	if err := reMarshal(resp, ret); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func (gs *gameServerService) DeleteAccount(steamid uint64) error {
+	if _, err := gs.srv.DeleteAccountV1(steamworks.IGameServersServiceDeleteAccountV1Input{
+		Key:     gs.key,
+		Steamid: steamid,
+	}); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func ResetLoginToken(key string, steamid string) (*ResetLoginTokenResponse, error) {
-	u := buildURL(key, resetLoginToken, map[string]string{
-		"steamid": steamid,
+func (gs *gameServerService) GetAccountPublicInfo(steamid uint64) (*GetAccountPublicInfoResponse, error) {
+	resp, err := gs.srv.GetAccountPublicInfoV1(steamworks.IGameServersServiceGetAccountPublicInfoV1Input{
+		Key:     gs.key,
+		Steamid: steamid,
 	})
-	resp := &ResetLoginTokenResponse{}
-	if err := post(u, resp); err != nil {
+	if err != nil {
+		return nil, err
+	}
+	ret := &GetAccountPublicInfoResponse{}
+	if err := reMarshal(resp, ret); err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	return ret, nil
 }
 
-func DeleteAccount(key string, steamid string) error {
-	u := buildURL(key, deleteAccount, map[string]string{
-		"steamid": steamid,
+func (gs *gameServerService) QueryLoginToken(loginToken string) (*QueryLoginTokenResponse, error) {
+	resp, err := gs.srv.QueryLoginTokenV1(steamworks.IGameServersServiceQueryLoginTokenV1Input{
+		Key:        gs.key,
+		LoginToken: loginToken,
 	})
-	if err := post(u, nil); err != nil {
-		return err
+	if err != nil {
+		return nil, err
 	}
-
-	return nil
-}
-
-func GetAccountPublicInfo(key string, steamid string) (*GetAccountPublicInfoResponse, error) {
-	u := buildURL(key, getAccountPublicInfo, map[string]string{
-		"steamid": steamid,
-	})
-	resp := &GetAccountPublicInfoResponse{}
-	if err := get(u, resp); err != nil {
+	ret := &QueryLoginTokenResponse{}
+	if err := reMarshal(resp, ret); err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	return ret, nil
 }
 
-func QueryLoginToken(key string, loginToken string) (*QueryLoginTokenResponse, error) {
-	u := buildURL(key, queryLoginToken, map[string]string{
-		"login_token": loginToken,
+func (gs *gameServerService) GetServerSteamIDsByIP(serverIPs string) (*GetServerSteamIDsByIPResponse, error) {
+	resp, err := gs.srv.GetServerSteamIDsByIPV1(steamworks.IGameServersServiceGetServerSteamIDsByIPV1Input{
+		Key:       gs.key,
+		ServerIps: serverIPs,
 	})
-	resp := &QueryLoginTokenResponse{}
-	if err := get(u, resp); err != nil {
+	if err != nil {
+		return nil, err
+	}
+	ret := &GetServerSteamIDsByIPResponse{}
+	if err := reMarshal(resp, ret); err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	return ret, nil
 }
 
-func GetServerSteamIDsByIP(key string, serverIP string) (*GetServerSteamIDsByIPResponse, error) {
-	u := buildURL(key, getServerSteamIDsByIP, map[string]string{
-		"server_ips": serverIP,
+func (gs *gameServerService) GetServerIPsBySteamID(steamids uint64) (*GetServerIPsBySteamIDResponse, error) {
+	resp, err := gs.srv.GetServerIPsBySteamIDV1(steamworks.IGameServersServiceGetServerIPsBySteamIDV1Input{
+		Key:            gs.key,
+		ServerSteamids: steamids,
 	})
-	resp := &GetServerSteamIDsByIPResponse{}
-	if err := get(u, resp); err != nil {
+	if err != nil {
 		return nil, err
 	}
-
-	return resp, nil
-}
-
-func GetServerIPsBySteamID(key string, steamid string) (*GetServerIPsBySteamIDResponse, error) {
-	u := buildURL(key, getServerIPsBySteamID, map[string]string{
-		"server_steamids": steamid,
-	})
-	resp := &GetServerIPsBySteamIDResponse{}
-	if err := get(u, resp); err != nil {
+	ret := &GetServerIPsBySteamIDResponse{}
+	if err := reMarshal(resp, ret); err != nil {
 		return nil, err
 	}
-
-	return resp, nil
+	return ret, nil
 }
